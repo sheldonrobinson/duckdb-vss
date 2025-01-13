@@ -499,14 +499,6 @@ ErrorData HNSWIndex::Append(IndexLock &lock, DataChunk &appended_data, Vector &r
 	return ErrorData {};
 }
 
-void HNSWIndex::VerifyAppend(DataChunk &chunk) {
-	// There is nothing to verify here as we dont support constraints anyway
-}
-
-void HNSWIndex::VerifyAppend(DataChunk &chunk, ConflictManager &conflict_manager) {
-	// There is nothing to verify here as we dont support constraints anyway
-}
-
 void HNSWIndex::PersistToDisk() {
 	// Acquire an exclusive lock to persist the index
 	auto lock = rwlock.GetExclusiveLock();
@@ -563,10 +555,6 @@ bool HNSWIndex::MergeIndexes(IndexLock &state, BoundIndex &other_index) {
 }
 
 void HNSWIndex::Vacuum(IndexLock &state) {
-}
-
-void HNSWIndex::CheckConstraintsForChunk(DataChunk &input, ConflictManager &conflict_manager) {
-	throw NotImplementedException("HNSWIndex::CheckConstraintsForChunk() not implemented");
 }
 
 string HNSWIndex::VerifyAndToString(IndexLock &state, const bool only_verify) {
