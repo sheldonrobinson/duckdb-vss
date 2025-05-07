@@ -1,20 +1,17 @@
 #pragma once
 
 #include "duckdb/function/table_function.hpp"
+#include "duckdb/function/table/table_scan.hpp"
 
 namespace duckdb {
 
-class DuckTableEntry;
 class Index;
 
 // This is created by the optimizer rule
-struct HNSWIndexScanBindData : public TableFunctionData {
-	explicit HNSWIndexScanBindData(DuckTableEntry &table, Index &index, idx_t limit, unsafe_unique_array<float> query)
-	    : table(table), index(index), limit(limit), query(std::move(query)) {
+struct HNSWIndexScanBindData final : public TableScanBindData {
+	explicit HNSWIndexScanBindData(TableCatalogEntry &table, Index &index, idx_t limit, unsafe_unique_array<float> query)
+	    : TableScanBindData(table), index(index), limit(limit), query(std::move(query)) {
 	}
-
-	//! The table to scan
-	DuckTableEntry &table;
 
 	//! The index to use
 	Index &index;
