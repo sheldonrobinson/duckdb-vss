@@ -33,7 +33,7 @@ public:
 	          AttachedDatabase &db, const case_insensitive_map_t<Value> &options,
 	          const IndexStorageInfo &info = IndexStorageInfo(), idx_t estimated_cardinality = 0);
 
-	static unique_ptr<PhysicalOperator> CreatePlan(PlanIndexInput &input);
+	static PhysicalOperator &CreatePlan(PlanIndexInput &input);
 
 	//! The actual usearch index
 	USearchIndexType index;

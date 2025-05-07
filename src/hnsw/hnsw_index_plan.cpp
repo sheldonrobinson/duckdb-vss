@@ -14,9 +14,10 @@
 
 namespace duckdb {
 
-unique_ptr<PhysicalOperator> HNSWIndex::CreatePlan(PlanIndexInput &input) {
+PhysicalOperator &HNSWIndex::CreatePlan(PlanIndexInput &input) {
 	auto &create_index = input.op;
 	auto &context = input.context;
+	auto &planner = input.planner;
 
 	Value enable_persistence;
 	context.TryGetCurrentSetting("hnsw_enable_experimental_persistence", enable_persistence);
@@ -110,9 +111,8 @@ unique_ptr<PhysicalOperator> HNSWIndex::CreatePlan(PlanIndexInput &input) {
 	select_list.push_back(
 	    make_uniq<BoundReferenceExpression>(LogicalType::ROW_TYPE, create_index.info->scan_types.size() - 1));
 
-	auto projection =
-	    make_uniq<PhysicalProjection>(new_column_types, std::move(select_list), create_index.estimated_cardinality);
-	projection->children.push_back(std::move(input.table_scan));
+	auto &projection = planner.Make<PhysicalProjection>(new_column_types, std::move(select_list), create_index.estimated_cardinality);
+	projection.children.push_back(input.table_scan);
 
 	// filter operator for IS_NOT_NULL on each key column
 	vector<LogicalType> filter_types;
@@ -127,18 +127,15 @@ unique_ptr<PhysicalOperator> HNSWIndex::CreatePlan(PlanIndexInput &input) {
 		filter_select_list.push_back(std::move(is_not_null_expr));
 	}
 
-	auto null_filter = make_uniq<PhysicalFilter>(std::move(filter_types), std::move(filter_select_list),
-	                                             create_index.estimated_cardinality);
-	null_filter->types.emplace_back(LogicalType::ROW_TYPE);
-	null_filter->children.push_back(std::move(projection));
+	auto &null_filter = planner.Make<PhysicalFilter>(std::move(filter_types), std::move(filter_select_list), create_index.estimated_cardinality);
+	null_filter.types.emplace_back(LogicalType::ROW_TYPE);
+	null_filter.children.push_back(projection);
 
-	auto physical_create_index = make_uniq<PhysicalCreateHNSWIndex>(
+	auto &physical_create_index = planner.Make<PhysicalCreateHNSWIndex>(
 	    create_index.types, create_index.table, create_index.info->column_ids, std::move(create_index.info),
 	    std::move(create_index.unbound_expressions), create_index.estimated_cardinality);
-
-	physical_create_index->children.push_back(std::move(null_filter));
-
-	return std::move(physical_create_index);
+	physical_create_index.children.push_back(null_filter);
+	return physical_create_index;
 }
 
 } // namespace duckdb
