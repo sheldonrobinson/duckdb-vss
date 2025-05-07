@@ -111,7 +111,8 @@ PhysicalOperator &HNSWIndex::CreatePlan(PlanIndexInput &input) {
 	select_list.push_back(
 	    make_uniq<BoundReferenceExpression>(LogicalType::ROW_TYPE, create_index.info->scan_types.size() - 1));
 
-	auto &projection = planner.Make<PhysicalProjection>(new_column_types, std::move(select_list), create_index.estimated_cardinality);
+	auto &projection =
+	    planner.Make<PhysicalProjection>(new_column_types, std::move(select_list), create_index.estimated_cardinality);
 	projection.children.push_back(input.table_scan);
 
 	// filter operator for IS_NOT_NULL on each key column
@@ -127,7 +128,8 @@ PhysicalOperator &HNSWIndex::CreatePlan(PlanIndexInput &input) {
 		filter_select_list.push_back(std::move(is_not_null_expr));
 	}
 
-	auto &null_filter = planner.Make<PhysicalFilter>(std::move(filter_types), std::move(filter_select_list), create_index.estimated_cardinality);
+	auto &null_filter = planner.Make<PhysicalFilter>(std::move(filter_types), std::move(filter_select_list),
+	                                                 create_index.estimated_cardinality);
 	null_filter.types.emplace_back(LogicalType::ROW_TYPE);
 	null_filter.children.push_back(projection);
 

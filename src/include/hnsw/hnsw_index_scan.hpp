@@ -9,7 +9,8 @@ class Index;
 
 // This is created by the optimizer rule
 struct HNSWIndexScanBindData final : public TableScanBindData {
-	explicit HNSWIndexScanBindData(TableCatalogEntry &table, Index &index, idx_t limit, unsafe_unique_array<float> query)
+	explicit HNSWIndexScanBindData(TableCatalogEntry &table, Index &index, idx_t limit,
+	                               unsafe_unique_array<float> query)
 	    : TableScanBindData(table), index(index), limit(limit), query(std::move(query)) {
 	}
 

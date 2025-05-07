@@ -574,7 +574,7 @@ bool HNSWIndexJoinOptimizer::TryOptimize(Binder &binder, ClientContext &context,
 	//------------------------------------------------------------------------------
 
 	auto index_join = make_uniq<LogicalHNSWIndexJoin>(binder.GenerateTableIndex(), duck_table, *index_ptr, k_value);
-	for(auto &column_id : inner_get.GetColumnIds()) {
+	for (auto &column_id : inner_get.GetColumnIds()) {
 		index_join->inner_column_ids.emplace_back(column_id.GetPrimaryIndex());
 	}
 	index_join->inner_projection_ids = inner_get.projection_ids;
