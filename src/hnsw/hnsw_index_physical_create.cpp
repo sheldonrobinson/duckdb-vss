@@ -306,7 +306,7 @@ SinkFinalizeType PhysicalCreateHNSWIndex::Finalize(Pipeline &pipeline, Event &ev
 }
 
 ProgressData PhysicalCreateHNSWIndex::GetSinkProgress(ClientContext &context, GlobalSinkState &gstate,
-                                                ProgressData source_progress) const {
+                                                      ProgressData source_progress) const {
 	// The "source_progress" is not relevant for CREATE INDEX statements
 	ProgressData res;
 

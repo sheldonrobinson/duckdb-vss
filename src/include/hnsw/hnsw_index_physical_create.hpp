@@ -53,7 +53,8 @@ public:
 		return true;
 	}
 
-	ProgressData GetSinkProgress(ClientContext &context, GlobalSinkState &gstate, ProgressData source_progress) const override;
+	ProgressData GetSinkProgress(ClientContext &context, GlobalSinkState &gstate,
+	                             ProgressData source_progress) const override;
 };
 
 } // namespace duckdb

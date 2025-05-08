@@ -197,7 +197,7 @@ public:
 	vector<ColumnBinding> GetColumnBindings() override;
 	vector<ColumnBinding> GetLeftBindings();
 	vector<ColumnBinding> GetRightBindings();
-	unique_ptr<PhysicalOperator> CreatePlan(ClientContext &context, PhysicalPlanGenerator &generator) override;
+	PhysicalOperator &CreatePlan(ClientContext &context, PhysicalPlanGenerator &planner) override;
 	idx_t EstimateCardinality(ClientContext &context) override;
 
 public:
@@ -287,20 +287,20 @@ vector<ColumnBinding> LogicalHNSWIndexJoin::GetColumnBindings() {
 	return result;
 }
 
-unique_ptr<PhysicalOperator> LogicalHNSWIndexJoin::CreatePlan(ClientContext &context,
-                                                              PhysicalPlanGenerator &generator) {
+PhysicalOperator &LogicalHNSWIndexJoin::CreatePlan(ClientContext &context, PhysicalPlanGenerator &planner) {
 
-	auto result = make_uniq<PhysicalHNSWIndexJoin>(types, estimated_cardinality, table, hnsw_index, limit);
-	result->limit = limit;
-	result->inner_column_ids = inner_column_ids;
-	result->inner_projection_ids = inner_projection_ids;
-	result->outer_vector_column = outer_vector_column;
-	result->inner_vector_column = inner_vector_column;
+	auto &result = planner.Make<PhysicalHNSWIndexJoin>(types, estimated_cardinality, table, hnsw_index, limit);
+	auto &cast_result = result.Cast<PhysicalHNSWIndexJoin>();
+	cast_result.limit = limit;
+	cast_result.inner_column_ids = inner_column_ids;
+	cast_result.inner_projection_ids = inner_projection_ids;
+	cast_result.outer_vector_column = outer_vector_column;
+	cast_result.inner_vector_column = inner_vector_column;
 
 	// Plan the	child
-	result->children.push_back(generator.CreatePlan(std::move(children[0])));
-
-	return std::move(result);
+	auto &plan = planner.CreatePlan(*children[0]);
+	result.children.push_back(plan);
+	return result;
 }
 
 idx_t LogicalHNSWIndexJoin::EstimateCardinality(ClientContext &context) {
@@ -574,7 +574,7 @@ bool HNSWIndexJoinOptimizer::TryOptimize(Binder &binder, ClientContext &context,
 	//------------------------------------------------------------------------------
 
 	auto index_join = make_uniq<LogicalHNSWIndexJoin>(binder.GenerateTableIndex(), duck_table, *index_ptr, k_value);
-	for(auto &column_id : inner_get.GetColumnIds()) {
+	for (auto &column_id : inner_get.GetColumnIds()) {
 		index_join->inner_column_ids.emplace_back(column_id.GetPrimaryIndex());
 	}
 	index_join->inner_projection_ids = inner_get.projection_ids;
