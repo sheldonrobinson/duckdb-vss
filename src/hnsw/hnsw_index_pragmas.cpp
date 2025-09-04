@@ -8,7 +8,7 @@
 #include "duckdb/storage/table/scan_state.hpp"
 #include "duckdb/transaction/duck_transaction.hpp"
 #include "duckdb/transaction/local_storage.hpp"
-#include "duckdb/main/extension_util.hpp"
+#include "duckdb/main/extension/extension_loader.hpp"
 #include "duckdb/catalog/catalog_entry/duck_index_entry.hpp"
 #include "duckdb/storage/data_table.hpp"
 
@@ -99,9 +99,15 @@ static void HNSWIndexInfoExecute(ClientContext &context, TableFunctionInput &dat
 		HNSWIndex *hnsw_index = nullptr;
 
 		auto &table_info = *storage.GetDataTableInfo();
-		table_info.GetIndexes().BindAndScan<HNSWIndex>(context, table_info, [&](HNSWIndex &index) {
-			if (index.name == index_entry.name) {
-				hnsw_index = &index;
+
+		table_info.BindIndexes(context, HNSWIndex::TYPE_NAME);
+		table_info.GetIndexes().Scan([&](Index &index) {
+			if (!index.IsBound() || HNSWIndex::TYPE_NAME != index.GetIndexType()) {
+				return false;
+			}
+			auto &cast_index = index.Cast<HNSWIndex>();
+			if (cast_index.name == index_entry.name) {
+				hnsw_index = &cast_index;
 				return true;
 			}
 			return false;
@@ -175,9 +181,14 @@ static void CompactIndexPragma(ClientContext &context, const FunctionParameters 
 	bool found_index = false;
 
 	auto &table_info = *storage.GetDataTableInfo();
-	table_info.GetIndexes().BindAndScan<HNSWIndex>(context, table_info, [&](HNSWIndex &hnsw_index) {
-		if (index_entry.name == index_name) {
-			hnsw_index.Compact();
+	table_info.BindIndexes(context, HNSWIndex::TYPE_NAME);
+	table_info.GetIndexes().Scan([&](Index &index) {
+		if (!index.IsBound() || HNSWIndex::TYPE_NAME != index.GetIndexType()) {
+			return false;
+		}
+		auto &cast_index = index.Cast<HNSWIndex>();
+		if (cast_index.name == index_entry.name) {
+			cast_index.Compact();
 			found_index = true;
 			return true;
 		}
@@ -192,14 +203,14 @@ static void CompactIndexPragma(ClientContext &context, const FunctionParameters 
 //-------------------------------------------------------------------------
 // Register
 //-------------------------------------------------------------------------
-void HNSWModule::RegisterIndexPragmas(DatabaseInstance &db) {
-	ExtensionUtil::RegisterFunction(
-	    db, PragmaFunction::PragmaCall("hnsw_compact_index", CompactIndexPragma, {LogicalType::VARCHAR}));
+void HNSWModule::RegisterIndexPragmas(ExtensionLoader &loader) {
+	loader.RegisterFunction(
+	    PragmaFunction::PragmaCall("hnsw_compact_index", CompactIndexPragma, {LogicalType::VARCHAR}));
 
 	// TODO: This is kind of ugly and maybe should just take a parameter instead...
 	TableFunction info_function("pragma_hnsw_index_info", {}, HNSWIndexInfoExecute, HNSWindexInfoBind,
 	                            HNSWIndexInfoInitGlobal);
-	ExtensionUtil::RegisterFunction(db, info_function);
+	loader.RegisterFunction(info_function);
 }
 
 } // namespace duckdb
