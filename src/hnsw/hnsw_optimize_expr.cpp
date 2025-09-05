@@ -6,6 +6,7 @@
 #include "duckdb/catalog/catalog_entry/scalar_function_catalog_entry.hpp"
 #include "duckdb/optimizer/column_binding_replacer.hpp"
 #include "duckdb/optimizer/optimizer.hpp"
+#include "duckdb/main/extension/extension_loader.hpp"
 
 #include "hnsw/hnsw.hpp"
 #include "hnsw/hnsw_index.hpp"

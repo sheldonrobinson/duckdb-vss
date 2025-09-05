@@ -10,6 +10,7 @@
 #include "duckdb/planner/operator/logical_top_n.hpp"
 #include "duckdb/planner/operator/logical_filter.hpp"
 #include "duckdb/storage/data_table.hpp"
+#include "duckdb/main/extension/extension_loader.hpp"
 
 #include "hnsw/hnsw.hpp"
 #include "hnsw/hnsw_index.hpp"
@@ -100,17 +101,23 @@ public:
 		unique_ptr<HNSWIndexScanBindData> bind_data = nullptr;
 		vector<reference<Expression>> bindings;
 
-		table_info.GetIndexes().BindAndScan<HNSWIndex>(context, table_info, [&](HNSWIndex &hnsw_index) {
+		table_info.BindIndexes(context, HNSWIndex::TYPE_NAME);
+		table_info.GetIndexes().Scan([&](Index &index) {
+			if (!index.IsBound() || HNSWIndex::TYPE_NAME != index.GetIndexType()) {
+				return false;
+			}
+			auto &cast_index = index.Cast<HNSWIndex>();
+
 			// Reset the bindings
 			bindings.clear();
 
 			// Check that the projection expression is a distance function that matches the index
-			if (!hnsw_index.TryMatchDistanceFunction(projection_expr, bindings)) {
+			if (!cast_index.TryMatchDistanceFunction(projection_expr, bindings)) {
 				return false;
 			}
 			// Check that the HNSW index actually indexes the expression
 			unique_ptr<Expression> index_expr;
-			if (!hnsw_index.TryBindIndexExpression(get, index_expr)) {
+			if (!cast_index.TryBindIndexExpression(get, index_expr)) {
 				return false;
 			}
 
@@ -128,7 +135,7 @@ public:
 				}
 			}
 
-			const auto vector_size = hnsw_index.GetVectorSize();
+			const auto vector_size = cast_index.GetVectorSize();
 			const auto &matched_vector = const_expr_ref.get().Cast<BoundConstantExpression>().value;
 			auto query_vector = make_unsafe_uniq_array<float>(vector_size);
 			auto vector_elements = ArrayValue::GetChildren(matched_vector);
@@ -136,7 +143,7 @@ public:
 				query_vector[i] = vector_elements[i].GetValue<float>();
 			}
 
-			bind_data = make_uniq<HNSWIndexScanBindData>(duck_table, hnsw_index, top_n.limit, std::move(query_vector));
+			bind_data = make_uniq<HNSWIndexScanBindData>(duck_table, cast_index, top_n.limit, std::move(query_vector));
 			return true;
 		});
 

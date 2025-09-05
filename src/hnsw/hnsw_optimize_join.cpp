@@ -34,10 +34,11 @@ class PhysicalHNSWIndexJoin final : public PhysicalOperator {
 public:
 	static constexpr const PhysicalOperatorType TYPE = PhysicalOperatorType::EXTENSION;
 
-	PhysicalHNSWIndexJoin(const vector<LogicalType> &types_p, const idx_t estimated_cardinality,
-	                      DuckTableEntry &table_p, HNSWIndex &hnsw_index_p, const idx_t limit_p)
-	    : PhysicalOperator(TYPE, types_p, estimated_cardinality), table(table_p), hnsw_index(hnsw_index_p),
-	      limit(limit_p) {
+	PhysicalHNSWIndexJoin(PhysicalPlan &physical_plan, const vector<LogicalType> &types_p,
+	                      const idx_t estimated_cardinality, DuckTableEntry &table_p, HNSWIndex &hnsw_index_p,
+	                      const idx_t limit_p)
+	    : PhysicalOperator(physical_plan, TYPE, types_p, estimated_cardinality), table(table_p),
+	      hnsw_index(hnsw_index_p), limit(limit_p) {
 	}
 
 public:
@@ -129,7 +130,7 @@ OperatorResultType PhysicalHNSWIndexJoin::Execute(ExecutionContext &context, Dat
 	const auto rhs_vector_ptr = FlatVector::GetData<float>(rhs_vector_child);
 
 	// We mimic the window row_number() operator here and output the row number in each batch, basically.
-	const auto row_number_vector = FlatVector::GetData<idx_t>(chunk.data[MATCH_COLUMN_OFFSET]);
+	const auto row_number_vector = FlatVector::GetData<int64_t>(chunk.data[MATCH_COLUMN_OFFSET]);
 
 	hnsw_index.ResetMultiScan(*state.index_state);
 
@@ -512,13 +513,21 @@ bool HNSWIndexJoinOptimizer::TryOptimize(Binder &binder, ClientContext &context,
 
 	HNSWIndex *index_ptr = nullptr;
 	vector<reference<Expression>> bindings;
-	table_info.GetIndexes().BindAndScan<HNSWIndex>(context, table_info, [&](HNSWIndex &hnsw_index) {
+
+	table_info.BindIndexes(context, HNSWIndex::TYPE_NAME);
+	table_info.GetIndexes().Scan([&](Index &index) {
+		if (!index.IsBound() || HNSWIndex::TYPE_NAME != index.GetIndexType()) {
+			return false;
+		}
+		auto &cast_index = index.Cast<HNSWIndex>();
+
+		// Reset the bindings
 		bindings.clear();
-		if (!hnsw_index.TryMatchDistanceFunction(distance_expr_ptr, bindings)) {
+		if (!cast_index.TryMatchDistanceFunction(distance_expr_ptr, bindings)) {
 			return false;
 		}
 		unique_ptr<Expression> bound_index_expr = nullptr;
-		if (!hnsw_index.TryBindIndexExpression(inner_get, bound_index_expr)) {
+		if (!cast_index.TryBindIndexExpression(inner_get, bound_index_expr)) {
 			return false;
 		}
 
@@ -546,7 +555,7 @@ bool HNSWIndexJoinOptimizer::TryOptimize(Binder &binder, ClientContext &context,
 		}
 
 		// Save the pointer to the index
-		index_ptr = &hnsw_index;
+		index_ptr = &cast_index;
 		return true;
 	});
 	if (!index_ptr) {
