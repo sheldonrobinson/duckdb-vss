@@ -523,7 +523,7 @@ void HNSWIndex::PersistToDisk() {
 	is_dirty = false;
 }
 
-IndexStorageInfo HNSWIndex::GetStorageInfo(const case_insensitive_map_t<Value> &options, const bool to_wal) {
+IndexStorageInfo HNSWIndex::SerializeToDisk(QueryContext context, const case_insensitive_map_t<Value> &options) {
 
 	PersistToDisk();
 
@@ -531,17 +531,26 @@ IndexStorageInfo HNSWIndex::GetStorageInfo(const case_insensitive_map_t<Value> &
 	info.name = name;
 	info.root = root_block_ptr.Get();
 
-	if (!to_wal) {
-		// use the partial block manager to serialize all allocator data
-		auto &block_manager = table_io_manager.GetIndexBlockManager();
-		PartialBlockManager partial_block_manager(block_manager, PartialBlockType::FULL_CHECKPOINT);
-		linked_block_allocator->SerializeBuffers(partial_block_manager);
-		partial_block_manager.FlushPartialBlocks();
-	} else {
-		info.buffers.push_back(linked_block_allocator->InitSerializationToWAL());
-	}
-
+	// Use the partial block manager to serialize allocator data.
+	auto &block_manager = table_io_manager.GetIndexBlockManager();
+	PartialBlockManager partial_block_manager(context, block_manager, PartialBlockType::FULL_CHECKPOINT);
+	linked_block_allocator->SerializeBuffers(partial_block_manager);
+	partial_block_manager.FlushPartialBlocks();
 	info.allocator_infos.push_back(linked_block_allocator->GetInfo());
+
+	return info;
+}
+
+IndexStorageInfo HNSWIndex::SerializeToWAL(const case_insensitive_map_t<Value> &options) {
+
+	PersistToDisk();
+
+	IndexStorageInfo info;
+	info.name = name;
+	info.root = root_block_ptr.Get();
+	info.buffers.push_back(linked_block_allocator->InitSerializationToWAL());
+	info.allocator_infos.push_back(linked_block_allocator->GetInfo());
+
 	return info;
 }
 

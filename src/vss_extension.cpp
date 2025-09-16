@@ -1,24 +1,22 @@
-#define DUCKDB_EXTENSION_MAIN
-
 #include "vss_extension.hpp"
 #include "duckdb.hpp"
 #include "duckdb/common/exception.hpp"
 #include "duckdb/common/string_util.hpp"
 #include "duckdb/function/scalar_function.hpp"
-#include "duckdb/main/extension_util.hpp"
+#include "duckdb/main/extension/extension_loader.hpp"
 #include "duckdb/parser/parsed_data/create_scalar_function_info.hpp"
 
 #include "hnsw/hnsw.hpp"
 
 namespace duckdb {
 
-static void LoadInternal(DatabaseInstance &instance) {
+static void LoadInternal(ExtensionLoader &loader) {
 	// Register the HNSW index module
-	HNSWModule::Register(instance);
+	HNSWModule::Register(loader);
 }
 
-void VssExtension::Load(DuckDB &db) {
-	LoadInternal(*db.instance);
+void VssExtension::Load(ExtensionLoader &loader) {
+	LoadInternal(loader);
 }
 
 std::string VssExtension::Name() {
@@ -29,16 +27,7 @@ std::string VssExtension::Name() {
 
 extern "C" {
 
-DUCKDB_EXTENSION_API void vss_init(duckdb::DatabaseInstance &db) {
-	duckdb::DuckDB db_wrapper(db);
-	db_wrapper.LoadExtension<duckdb::VssExtension>();
-}
-
-DUCKDB_EXTENSION_API const char *vss_version() {
-	return duckdb::DuckDB::LibraryVersion();
+DUCKDB_CPP_EXTENSION_ENTRY(vss, loader) {
+	duckdb::LoadInternal(loader);
 }
 }
-
-#ifndef DUCKDB_EXTENSION_MAIN
-#error DUCKDB_EXTENSION_MAIN not defined
-#endif

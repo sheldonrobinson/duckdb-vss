@@ -1,5 +1,5 @@
 #include "duckdb/function/table_macro_function.hpp"
-#include "duckdb/main/extension_util.hpp"
+#include "duckdb/main/extension/extension_loader.hpp"
 #include "duckdb/optimizer/matcher/expression_matcher.hpp"
 #include "hnsw/hnsw.hpp"
 #include "hnsw/hnsw_index.hpp"
@@ -77,7 +77,7 @@ FROM
 //-------------------------------------------------------------------------
 // Register
 //-------------------------------------------------------------------------
-static void RegisterTableMacro(DatabaseInstance &db, const string &name, const string &query,
+static void RegisterTableMacro(ExtensionLoader &loader, const string &name, const string &query,
                                const vector<string> &params, const child_list_t<Value> &named_params) {
 
 	Parser parser;
@@ -91,6 +91,7 @@ static void RegisterTableMacro(DatabaseInstance &db, const string &name, const s
 	}
 
 	for (auto &param : named_params) {
+		func->parameters.push_back(make_uniq<ColumnRefExpression>(param.first));
 		func->default_parameters[param.first] = make_uniq<ConstantExpression>(param.second);
 	}
 
@@ -101,15 +102,15 @@ static void RegisterTableMacro(DatabaseInstance &db, const string &name, const s
 	info.internal = true;
 	info.macros.push_back(std::move(func));
 
-	ExtensionUtil::RegisterFunction(db, info);
+	loader.RegisterFunction(info);
 }
 
-void HNSWModule::RegisterMacros(DatabaseInstance &db) {
+void HNSWModule::RegisterMacros(ExtensionLoader &loader) {
 
-	RegisterTableMacro(db, "vss_join", VSS_JOIN_MACRO, {"left_table", "right_table", "left_col", "right_col", "k"},
+	RegisterTableMacro(loader, "vss_join", VSS_JOIN_MACRO, {"left_table", "right_table", "left_col", "right_col", "k"},
 	                   {{"metric", Value("l2sq")}});
 
-	RegisterTableMacro(db, "vss_match", VSS_MATCH_MACRO, {"right_table", "left_col", "right_col", "k"},
+	RegisterTableMacro(loader, "vss_match", VSS_MATCH_MACRO, {"right_table", "left_col", "right_col", "k"},
 	                   {{"metric", Value("l2sq")}});
 }
 

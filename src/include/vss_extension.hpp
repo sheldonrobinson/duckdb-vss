@@ -6,7 +6,7 @@ namespace duckdb {
 
 class VssExtension : public Extension {
 public:
-	void Load(DuckDB &db) override;
+	void Load(ExtensionLoader &loader) override;
 	std::string Name() override;
 };
 
